@@ -1,0 +1,226 @@
+# ============================================================================
+# Drishti-Rakshak AI — Master Pipeline Configuration
+# ============================================================================
+# All hyperparameters, paths, thresholds, and switches in one place.
+# Do NOT scatter magic numbers in code — reference this config everywhere.
+# ============================================================================
+
+# --- Project Metadata ---
+project:
+  name: "Drishti-Rakshak AI"
+  version: "1.0.0"
+  description: "Multimodal Tele-Ophthalmology Screening Platform for DR & DME"
+  random_seed: 42
+
+# --- Data Paths (relative to project root) ---
+paths:
+  data_root: "data"
+  raw_images: "data/Raw"
+  preprocessed_images: "data/Preprocessed_Images"
+  augmented_images: "data/Augmented_Images"
+  clinical_tabular: "data"
+  clinical_csv: "data/multimodal_dr_dataset_22_features.csv"
+  augmented_csv: "data/augmented_multimodal_dr_dataset.csv"
+  preprocessed_manifest: "data/preprocessed_images_manifest.csv"
+  augmented_manifest: "data/augmented_images_manifest.csv"
+  splits_dir: "data/splits"
+  outputs_dir: "outputs"
+  logs_dir: "logs"
+  checkpoints_dir: "outputs/checkpoints"
+  reports_dir: "outputs/reports"
+  evaluation_dir: "outputs/evaluation"
+  uploads_dir: "app/static/uploads"
+
+  # IDRiD raw sub-paths
+  idrid_segmentation_train: "data/Raw/A.%20Segmentation/A. Segmentation/1. Original Images/a. Training Set"
+  idrid_segmentation_test: "data/Raw/A.%20Segmentation/A. Segmentation/1. Original Images/b. Testing Set"
+  idrid_grading_train: "data/Raw/B.%20Disease%20Grading/B. Disease Grading/1. Original Images/a. Training Set"
+  idrid_grading_test: "data/Raw/B.%20Disease%20Grading/B. Disease Grading/1. Original Images/b. Testing Set"
+  idrid_grading_labels_train: "data/Raw/B.%20Disease%20Grading/B. Disease Grading/2. Groundtruths/a. IDRiD_Disease Grading_Training Labels.csv"
+  idrid_grading_labels_test: "data/Raw/B.%20Disease%20Grading/B. Disease Grading/2. Groundtruths/b. IDRiD_Disease Grading_Testing Labels.csv"
+  idrid_lesion_masks_train: "data/Raw/A.%20Segmentation/A. Segmentation/2. All Segmentation Groundtruths/a. Training Set"
+  idrid_lesion_masks_test: "data/Raw/A.%20Segmentation/A. Segmentation/2. All Segmentation Groundtruths/b. Testing Set"
+  idrid_localization_od_train: "data/Raw/C.%20Localization/C. Localization/2. Groundtruths/1. Optic Disc Center Location/a. IDRiD_OD_Center_Training Set_Markups.csv"
+  idrid_localization_fovea_train: "data/Raw/C.%20Localization/C. Localization/2. Groundtruths/2. Fovea Center Location/IDRiD_Fovea_Center_Training Set_Markups.csv"
+  messidor2_images: "data/Raw/messidor-2/preprocess"
+  messidor2_csv: "data/Raw/messidor-2/messidor_data.csv"
+
+# --- Data Splitting ---
+splitting:
+  train_ratio: 0.70
+  val_ratio: 0.15
+  test_ratio: 0.15
+  stratify_column: "dr_stage_label"
+  patient_id_column: "image_id"  # Adjusted to actual CSV column
+  random_seed: 42
+
+# --- Image Quality Assessment (IQA) ---
+iqa:
+  blur_threshold: 70.0           # Var(Laplacian) < this = blurry (normalized to <=512px)
+  entropy_threshold: 4.2         # Shannon entropy < this = poor exposure
+  brisque_threshold: 50.0        # BRISQUE > this = low quality
+  niqe_threshold: 7.0            # NIQE > this = low quality
+  min_image_size: 256            # Minimum pixel dimension
+  supported_formats: [".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp"]
+
+# --- Preprocessing ---
+preprocessing:
+  target_size: [1024, 1024]      # Output image resolution
+  clahe:
+    clip_limit: 2.0
+    tile_grid_size: [8, 8]
+  gaussian_blur_kernel: 5
+  gamma: 1.2
+  normalization_range: [0.0, 1.0]
+  border_crop:
+    min_radius_ratio: 0.3        # Min retina radius as fraction of image size
+    padding: 10                  # Pixels of padding around detected retina
+
+# --- Denoising Autoencoder ---
+autoencoder:
+  latent_dim: 128
+  learning_rate: 0.001
+  epochs: 50
+  batch_size: 16
+  input_size: [256, 256]         # DAE operates at reduced resolution
+
+# --- EnlightenGAN ---
+enlighten_gan:
+  enabled: false                 # Set true when pretrained weights are available
+  weights_path: ""
+  fallback_method: "clahe_gamma" # Fallback: CLAHE + gamma correction
+
+# --- Augmentation (Train-only) ---
+augmentation:
+  enabled: true
+  cutmix:
+    enabled: true
+    alpha: 1.0
+    probability: 0.3
+  cutout:
+    enabled: true
+    num_holes: 1
+    max_h_size: 64
+    max_w_size: 64
+    probability: 0.3
+  geometric:
+    horizontal_flip: true
+    vertical_flip: false
+    rotation_limit: 15
+    scale_limit: 0.1
+  color:
+    brightness_limit: 0.1
+    contrast_limit: 0.1
+  smote:
+    enabled: true
+    k_neighbors: 5
+    sampling_strategy: "auto"
+  cgan:
+    enabled: false               # Requires trained cGAN weights
+    weights_path: ""
+
+# --- Training ---
+training:
+  epochs: 100
+  batch_size: 16
+  learning_rate: 0.0001
+  weight_decay: 0.0001
+  optimizer: "adamw"
+  scheduler: "cosine_annealing"
+  scheduler_params:
+    T_max: 100
+    eta_min: 0.000001
+  early_stopping:
+    enabled: true
+    patience: 15
+    min_delta: 0.001
+    monitor: "val_qwk"
+    mode: "max"
+  mixed_precision: true
+  gradient_clip_norm: 1.0
+  num_workers: 4
+  pin_memory: true
+
+# --- Loss Function ---
+loss:
+  focal_gamma: 2.0
+  label_smoothing: 0.1
+  task_weights:
+    dr_classification: 1.0
+    dme_classification: 0.5
+    severity_regression: 0.3
+    referable_triage: 0.5
+
+# --- Trustworthy AI ---
+trustworthy_ai:
+  temperature_scaling:
+    enabled: true
+    max_iter: 100
+    lr: 0.01
+  mc_dropout:
+    enabled: true
+    num_passes: 20
+    dropout_rate: 0.3
+    uncertainty_threshold: 0.15  # Variance above this = "High Uncertainty"
+  gradcam:
+    target_layer: "auto"         # Auto-detect last conv layer
+    threshold: 0.5               # Binarization threshold for IoU/Dice
+  lime:
+    num_samples: 1000
+    num_features: 10
+  shap:
+    max_samples: 100
+
+# --- Threshold Optimizer ---
+threshold_optimizer:
+  method: "nelder_mead"
+  metric: "qwk"
+  max_iter: 1000
+
+# --- Stacking Ensemble ---
+ensemble:
+  catboost:
+    iterations: 500
+    depth: 6
+    learning_rate: 0.05
+    verbose: 0
+  xgboost:
+    n_estimators: 500
+    max_depth: 6
+    learning_rate: 0.05
+  random_forest:
+    n_estimators: 300
+    max_depth: 10
+    random_state: 42
+  meta_learner: "soft_voting"
+
+# --- Simulation ---
+simulation:
+  num_phcs: 50
+  district_hospitals: 1
+  doctors_per_hospital: 5
+  simulation_duration_days: 365
+  patients_per_phc_per_day: 8     # ~100,000/year across 50 PHCs
+  edge_triage_filter_rate: 0.60   # 60% normal cases filtered at PHC
+  emergency_queue_jump: true
+  network_scenarios:
+    2g:
+      bandwidth_kbps: 64
+      latency_ms: 800
+      packet_loss_rate: 0.15
+    3g:
+      bandwidth_kbps: 2000
+      latency_ms: 200
+      packet_loss_rate: 0.05
+    4g:
+      bandwidth_kbps: 20000
+      latency_ms: 50
+      packet_loss_rate: 0.01
+  image_size_kb: 500               # Average compressed fundus image size
+
+# --- PDF Report ---
+reporting:
+  page_size: "A4"
+  disclaimer: "AI-assisted screening output. Not a substitute for clinical diagnosis by a qualified ophthalmologist."
+  institution: "Drishti-Rakshak AI Screening System"
+  version_string: "v1.0.0-research"

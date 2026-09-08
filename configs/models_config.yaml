@@ -1,0 +1,92 @@
+# ============================================================================
+# Drishti-Rakshak AI — Model Architecture Configuration
+# ============================================================================
+# Backbone, segmentation, fusion, and head configurations.
+# ============================================================================
+
+# --- Branch A: Local CNN (EfficientNet + CBAM) ---
+efficientnet_cbam:
+  model_name: "efficientnet_b0"       # Options: efficientnet_b0, efficientnet_b4
+  pretrained: true
+  cbam:
+    reduction_ratio: 16
+    spatial_kernel_size: 7
+  feature_dim: 1280                   # EfficientNet-B0 output; B4 = 1792
+  freeze_layers: 0                    # Number of initial blocks to freeze (0 = train all)
+  dropout: 0.3
+
+# --- Branch B: Global ViT (Swin Transformer) ---
+swin_transformer:
+  model_name: "swin_tiny_patch4_window7_224"
+  pretrained: true
+  feature_dim: 768                    # Swin-Tiny output dimension
+  input_size: [224, 224]
+  dropout: 0.3
+
+# --- Branch C: Vessel & CDR Segmentation (Swin-Unet) ---
+swin_unet_vessel:
+  encoder_name: "swin_tiny_patch4_window7_224"
+  pretrained_encoder: true
+  num_classes: 3                      # vessel, optic_disc, optic_cup
+  input_size: [512, 512]
+  decoder_channels: [256, 128, 64, 32]
+  dropout: 0.2
+  feature_dim: 222                    # 220 radiomics + AVR + CDR
+
+# --- Branch D: Lesion Segmentation (Concat U-Net + CBAM) ---
+concat_unet_lesion:
+  encoder_name: "resnet34"
+  pretrained_encoder: true
+  num_classes: 4                      # MA, HE, EX, SE
+  input_size: [512, 512]
+  decoder_channels: [256, 128, 64, 32]
+  cbam:
+    enabled: true
+    reduction_ratio: 16
+  dropout: 0.2
+
+# --- Branch E: Clinical Tabular MLP ---
+tabular_mlp:
+  input_features: 22                  # Adjusted to actual feature count
+  hidden_layers: [256, 192, 128]      # 3-layer dense network
+  output_dim: 128
+  dropout: 0.3
+  activation: "gelu"
+  normalization: "layer_norm"
+
+# --- Eye-Pair / Spatial LSTM ---
+eye_pair_lstm:
+  input_dim: 512                      # Concatenated visual features
+  hidden_dim: 256
+  num_layers: 2
+  bidirectional: true
+  output_dim: 256
+  dropout: 0.3
+
+# --- Adaptive Gated Fusion ---
+adaptive_gated_fusion:
+  image_dim: 2048                     # f_cnn(1280) + f_swin(768) or adjusted
+  clinical_dim: 128                   # From tabular MLP
+  fused_dim: 512
+  dropout: 0.2
+  gate_activation: "sigmoid"
+
+# --- Multi-Task Classification Head ---
+multi_task_head:
+  input_dim: 512                      # From AGF fused embedding
+  dr_classes: 5                       # 0: No DR, 1: Mild, 2: Moderate, 3: Severe, 4: PDR
+  dme_classes: 3                      # 0: No DME, 1: Mild/Non-CSME, 2: CSME
+  severity_range: [0.0, 4.0]
+  referable_threshold_dr: 2           # DR >= Stage 2
+  referable_threshold_dme: 1          # DME >= Grade 1
+  hidden_dim: 256
+  dropout: 0.3
+
+# --- Segmentation Training (if training from scratch) ---
+segmentation_training:
+  epochs: 50
+  batch_size: 8
+  learning_rate: 0.0001
+  optimizer: "adamw"
+  loss: "dice_bce"                    # Combined Dice + BCE loss
+  input_size: [512, 512]

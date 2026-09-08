@@ -1,0 +1,13 @@
+DrishtiRakshak AI Verified Benchmark Evaluation Report
+=====================================================
+
+Zero-Leakage Benchmark Test Set: 356 patient scans
+Deep Backbone QWK: 0.9223
+Nelder-Mead Optimized QWK: 0.9223
+Meta-Ensemble QWK: 0.9270 (Accuracy: 92.13%)
+Referable Sensitivity: 99.36%
+Referable Specificity: 98.49%
+ROC-AUC: 0.8920 | PR-AUC: 0.9153
+Learned Temperature T: 0.9377
+Expected Calibration Error: 3.72% -> 3.50%
+Real IDRiD Lesion Alignment: Mean IoU = 0.0587, Mean Dice = 0.1088

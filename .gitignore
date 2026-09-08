@@ -1,0 +1,90 @@
+# Drishti-Rakshak AI .gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE, Agent & Test Caches
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.agents/
+.claude/
+.pytest_cache/
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Datasets (large image archives and raw scans - keep manifests/csv)
+data/Raw/*
+!data/Raw/.gitkeep
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/Augmented_Images/
+data/Preprocessed_Images/
+data/**/*.jpg
+data/**/*.jpeg
+data/**/*.png
+data/**/*.tif
+data/**/*.tiff
+*.tif
+*.tiff
+
+# Scratch and temporary directories
+scratch
+scratch/*
+!scratch/.gitkeep
+
+# Intermediate checkpoints
+outputs/checkpoints/*
+!outputs/checkpoints/.gitkeep
+
+# Generated patient reports and gradcam run artifacts
+outputs/reports/*
+!outputs/reports/.gitkeep
+
+# Logs
+logs
+logs/*.log
+!logs/.gitkeep
+
+# MATLAB generated binaries
+matlab_simulink/models/*.slx
+matlab_simulink/**/*.mat
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Environment & Secrets
+.env
+*.env
+
+Docs/
+
+implementation_plan SIH.md
+PROJECT_CONTEXT.md
+model trained.txt
+report.txt
+severe_patient.json
+Test_img1.jpg
+Test_img2.jpg
+Test1.png
+Test2.png
+Test3.png

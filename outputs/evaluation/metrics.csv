@@ -1,0 +1,23 @@
+metric,value
+dr_classification.accuracy,0.9269662921348315
+dr_classification.balanced_accuracy,0.8948194539769695
+dr_classification.macro_precision,0.8715396657072161
+dr_classification.macro_recall,0.8948194539769695
+dr_classification.macro_f1,0.879149665602314
+dr_classification.qwk_raw,0.9222565311014504
+dr_classification.qwk_threshold_optimized,0.9222565311014504
+stacking_ensemble.accuracy,0.9213483146067416
+stacking_ensemble.macro_f1,0.876987920190033
+stacking_ensemble.qwk,0.9270207662819541
+stacking_ensemble.models_included,"['CatBoost', 'XGBoost', 'Random Forest', 'Deep Multimodal Head']"
+binary_triage.sensitivity,0.9936305732484076
+binary_triage.specificity,0.9849246231155779
+binary_triage.roc_auc,0.8920078097493839
+binary_triage.pr_auc,0.915254494061164
+severity_regression.mae,0.11797752808988764
+calibration.optimal_temperature,0.9376978278160095
+calibration.ece_pre_scaling,0.03722753400882975
+calibration.ece_post_scaling,0.03503261615386167
+lesion_alignment.evaluated_scans_count,54
+lesion_alignment.mean_iou,0.058696993434317855
+lesion_alignment.mean_dice,0.10883902107592167

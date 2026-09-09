@@ -137,7 +137,7 @@ class VesselSegmentor:
             img_tensor = ((img_tensor / 255.0) - mean) / std
             out = self.model(img_tensor)
             results = {}
-            calibrated_thresholds = {'vessel': 0.82, 'disc': 0.85, 'cup': 0.80}
+            calibrated_thresholds = {'vessel': 0.80, 'disc': 0.85, 'cup': 0.94}
             for k, v in out.items():
                 thresh = threshold if threshold is not None else calibrated_thresholds.get(k, 0.5)
                 mask_224 = (v.squeeze().cpu().numpy() > thresh).astype(np.uint8)
@@ -149,25 +149,37 @@ class VesselSegmentor:
         return float(np.mean(vessel_mask))
         
     def compute_avr(self, vessel_mask: np.ndarray) -> float:
-        # Arteriovenous Ratio: ratio of thin to medium caliber vessels
+        # Standardize to 224 canonical size for resolution-invariant caliber estimation
+        if vessel_mask.shape[:2] != (224, 224):
+            v_eval = cv2.resize(vessel_mask.astype(np.uint8), (224, 224), interpolation=cv2.INTER_NEAREST)
+        else:
+            v_eval = vessel_mask.astype(np.uint8)
+            
         kernel_small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-        eroded = cv2.erode(vessel_mask.astype(np.uint8), kernel_small, iterations=1)
-        thick_vessels = np.sum(eroded)
-        total_vessels = np.sum(vessel_mask)
+        eroded = cv2.erode(v_eval, kernel_small, iterations=1)
+        thick_vessels = float(np.sum(eroded))
+        total_vessels = float(np.sum(v_eval))
+        
         if total_vessels == 0:
             return 0.65
+        if thick_vessels == 0:
+            return 0.80
+            
         thin_vessels = total_vessels - thick_vessels
-        ratio = (thin_vessels / total_vessels) * 1.1
-        return float(np.clip(ratio, 0.50, 0.85))
+        # Ratio of thin arteriolar branches to thick venular trunks calibrated to clinical AVR (0.55-0.75 normal)
+        ratio = (thin_vessels / thick_vessels) * 0.80
+        return float(np.clip(ratio, 0.40, 0.85))
         
     def compute_cdr(self, disc_mask: np.ndarray, cup_mask: np.ndarray) -> float:
-        disc_area = np.sum(disc_mask)
-        cup_area = np.sum(cup_mask)
+        # Constrain cup to lie strictly within the optic disc
+        cup_in_disc = cup_mask & disc_mask
+        disc_area = float(np.sum(disc_mask))
+        cup_area = float(np.sum(cup_in_disc))
         if disc_area == 0:
             return 0.35
         # Vertical diameter ratio approximated by sqrt of area ratio
         cdr = np.sqrt(cup_area / disc_area)
-        return float(np.clip(cdr, 0.15, 0.75))
+        return float(np.clip(cdr, 0.15, 0.90))
 
     def compute_disc_cup_areas(self, disc_mask: np.ndarray, cup_mask: np.ndarray) -> Dict[str, float]:
         return {

@@ -125,12 +125,12 @@ class DrishtiRakshakPipeline:
             return norm_grad / 255.0, overlay
 
     def predict(self, image_path_or_array, clinical_features: dict = None, 
-                bilateral_image=None, patient_id: str = None) -> dict:
+                bilateral_image=None, patient_id: str = None, eye_laterality: str = "OD (Right Eye)") -> dict:
         """
         Run the complete clinical Drishti-Rakshak pipeline for a patient scan.
         """
         patient_id = patient_id or f"PAT_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        logger.info(f"Starting analysis for Patient {patient_id}")
+        logger.info(f"Starting analysis for Patient {patient_id} [{eye_laterality}]")
         
         # 1. Load Image
         if isinstance(image_path_or_array, (str, Path)):
@@ -260,6 +260,10 @@ class DrishtiRakshakPipeline:
         reports_dir = self.base_dir / "outputs" / "reports"
         reports_dir.mkdir(parents=True, exist_ok=True)
         
+        cropped_bgr = cv2.cvtColor(cropped_rgb, cv2.COLOR_RGB2BGR)
+        cropped_path = str(reports_dir / f"{patient_id}_cropped.jpg")
+        cv2.imwrite(cropped_path, cropped_bgr)
+        
         overlay_bgr = cv2.cvtColor(overlay_rgb, cv2.COLOR_RGB2BGR)
         gradcam_path = str(reports_dir / f"{patient_id}_gradcam.jpg")
         cv2.imwrite(gradcam_path, overlay_bgr)
@@ -290,9 +294,12 @@ class DrishtiRakshakPipeline:
         result = {
             'patient_id': patient_id,
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'eye_laterality': eye_laterality,
+            'cropped_path': cropped_path,
             'iqa': {
                 'is_gradable': bool(iqa_res.get('is_gradable', True)),
                 'quality_score': float(iqa_res.get('quality_score', 0.90)),
+                'brisque_score': float(iqa_res.get('brisque_score', iqa_res.get('quality_score', 25.0))),
                 'blur_score': float(iqa_res.get('blur_score', 0.05)),
                 'entropy': float(iqa_res.get('entropy', 6.5)),
                 'quality_tier': iqa_res.get('quality_tier', 'good'),
@@ -342,6 +349,7 @@ class DrishtiRakshakPipeline:
             },
             'screening_mode': 'Multimodal Comprehensive (Image + EMR)' if clinical_provided else 'Autonomous Image-Only Screening',
             'clinical_data_provided': clinical_provided,
+            'clinical_features': clin_input if clinical_provided else {},
             'clinical_inputs': clin_input if clinical_provided else {},
             'report_path': str(reports_dir / f"{patient_id}_report.pdf")
         }
@@ -361,6 +369,7 @@ if __name__ == "__main__":
     parser.add_argument("image", help="Path to retinal fundus image")
     parser.add_argument("--clinical", help="Path to clinical features JSON", default=None)
     parser.add_argument("--patient_id", help="Patient ID string", default=None)
+    parser.add_argument("--eye", help="Eye laterality: OD (Right) or OS (Left)", default="OD (Right Eye)")
     args = parser.parse_args()
     
     clinical_dict = None
@@ -369,12 +378,13 @@ if __name__ == "__main__":
             clinical_dict = json.load(f)
             
     pipeline = DrishtiRakshakPipeline()
-    res = pipeline.predict(args.image, clinical_features=clinical_dict, patient_id=args.patient_id)
+    res = pipeline.predict(args.image, clinical_features=clinical_dict, patient_id=args.patient_id, eye_laterality=args.eye)
     
     print("\n" + "="*70)
     print("           DRISHTI-RAKSHAK AI CLINICAL SCREENING REPORT")
     print("="*70)
     print(f" Patient ID        : {res['patient_id']}")
+    print(f" Eye Laterality    : {res['eye_laterality']}")
     print(f" DR Diagnosis      : {res['dr_prediction']['stage_name']} ({res['dr_prediction']['confidence']*100:.1f}% Confidence)")
     print(f" DME Risk          : {res['dme_prediction']['grade_name']}")
     print(f" Severity Index    : {res['severity_score']} / 4.0")

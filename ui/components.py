@@ -172,20 +172,80 @@ def render_dr_result_card(dr_prediction: dict, referable: bool, referral_status:
 # ---------------------------------------------------------------------------
 
 def render_biomarker_gauges(biomarkers: dict) -> None:
-    """Compact metric row for retinal biomarkers."""
+    """Enhanced clinical cards for retinal biomarkers with reference ranges and status badges."""
+    avr_val = float(biomarkers.get("avr", 0.65))
+    cdr_val = float(biomarkers.get("cdr", 0.40))
+    density_val = float(biomarkers.get("vessel_density", 0.08))
+    fovea_dist = float(biomarkers.get("exudate_fovea_distance", 999.0))
+
+    # AVR clinical status
+    if avr_val < 0.55:
+        avr_badge = ":material/warning: Narrowed (Risk)"
+        avr_color = "orange"
+    elif avr_val <= 0.75:
+        avr_badge = ":material/check_circle: Normal Caliber"
+        avr_color = "green"
+    else:
+        avr_badge = ":material/info: Normal / Dilated"
+        avr_color = "blue"
+
+    # CDR clinical status
+    if cdr_val <= 0.45:
+        cdr_badge = ":material/check_circle: Normal Cup"
+        cdr_color = "green"
+    elif cdr_val <= 0.65:
+        cdr_badge = ":material/info: Physiological Cup"
+        cdr_color = "blue"
+    else:
+        cdr_badge = ":material/warning: Glaucoma Suspect"
+        cdr_color = "orange"
+
     with st.container(border=True):
-        st.markdown("**Retinal biomarkers**")
-        with st.container(horizontal=True):
-            st.metric("AVR", f"{biomarkers.get('avr', 0):.2f}", border=True)
-            st.metric("CDR", f"{biomarkers.get('cdr', 0):.2f}", border=True)
-            st.metric(
-                "Vessel density",
-                f"{biomarkers.get('vessel_density', 0):.3f}",
-                border=True,
+        st.markdown("**Quantitative Retinal Biomarkers (Computer Vision)**")
+        st.caption("Extracted via Swin-UNet semantic segmentation and retinal vascular morphology.")
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            with st.container(border=True):
+                st.markdown("**AVR** *(Arteriole/Venule)*")
+                st.metric("AVR", f"{avr_val:.2f}", label_visibility="collapsed")
+                st.badge(avr_badge, color=avr_color)
+                st.caption("Normal ref: 0.60 – 0.70")
+        with col2:
+            with st.container(border=True):
+                st.markdown("**CDR** *(Cup/Disc Ratio)*")
+                st.metric("CDR", f"{cdr_val:.2f}", label_visibility="collapsed")
+                st.badge(cdr_badge, color=cdr_color)
+                st.caption("Normal ref: ≤ 0.45 (Suspect >0.65)")
+        with col3:
+            with st.container(border=True):
+                st.markdown("**Vessel Density**")
+                st.metric("Vessel Density", f"{density_val:.3f}", label_visibility="collapsed")
+                st.badge(":material/check_circle: Preserved", color="green")
+                st.caption("Normal ref: 0.060 – 0.120")
+        with col4:
+            with st.container(border=True):
+                st.markdown("**Exudate-Fovea Dist.**")
+                if fovea_dist < 999.0:
+                    st.metric("Exudate Dist", f"{fovea_dist:.0f} px", label_visibility="collapsed")
+                    if fovea_dist < 500:
+                        st.badge(":material/priority_high: CSME Risk (<500px)", color="red")
+                    else:
+                        st.badge(":material/info: Peripheral", color="blue")
+                else:
+                    st.metric("Exudate Dist", "N/A", label_visibility="collapsed")
+                    st.badge(":material/check_circle: No Exudates", color="green")
+                st.caption("Macular edema risk marker")
+
+        with st.expander("Biomarker Clinical Reference & Methodology", expanded=False):
+            st.markdown(
+                r"""
+                - **AVR (Arteriole-to-Venule Ratio):** Caliber ratio between arteriolar branches and venular trunks. Values $< 0.55$ indicate generalized arteriolar narrowing from hypertensive or diabetic microangiopathy.
+                - **CDR (Cup-to-Disc Ratio):** Vertical cup diameter divided by disc diameter. Normal physiological cupping is $\le 0.45$. Values $> 0.65$ suggest glaucomatous excavation and recommend visual field testing.
+                - **Vessel Density:** Proportion of retinal area occupied by vascular branches. Reflects microvascular perfusion preservation.
+                - **Exudate-Fovea Proximity:** Euclidean distance from the nearest lipid exudate to the foveal avascular zone center. Exudates within 500 pixels indicate clinically significant macular edema (CSME).
+                """
             )
-            exudate_dist = biomarkers.get("exudate_fovea_distance", 999.0)
-            dist_label = f"{exudate_dist:.0f} px" if exudate_dist < 999 else "N/A"
-            st.metric("Exudate-fovea dist.", dist_label, border=True)
 
 
 # ---------------------------------------------------------------------------

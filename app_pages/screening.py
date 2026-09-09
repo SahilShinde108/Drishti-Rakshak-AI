@@ -259,23 +259,10 @@ if "last_result" in st.session_state:
     # 5. Quick Navigation Callout
     with st.container(border=True):
         st.markdown("**Next clinical actions:**")
-        nav_c1, nav_c2, nav_c3 = st.columns(3)
+        nav_c1, nav_c2= st.columns(2)
         with nav_c1:
             st.caption("Inspect Grad-CAM++ saliency and lesion alignment in **Explainability**.")
         with nav_c2:
             st.caption("Review full patient history and download PDF in **Clinical Report**.")
-        with nav_c3:
-            pdf_path = res.get("report_path")
-            if pdf_path and os.path.exists(pdf_path):
-                with open(pdf_path, "rb") as f:
-                    pdf_bytes = f.read()
-                st.download_button(
-                    label="Download clinical report (PDF)",
-                    data=pdf_bytes,
-                    file_name=f"{res.get('patient_id', 'screening')}_report.pdf",
-                    mime="application/pdf",
-                    icon=":material/download:",
-                    width="stretch"
-                )
 
 render_disclaimer()
